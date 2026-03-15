@@ -1,0 +1,112 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KWB Heizung verbinden",
+        "description": "Gib die Verbindungsdaten deiner KWB Heizungsanlage ein.",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port",
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des KWB-Controllers.",
+          "port": "TCP-Port für Modbus (Standard: 502).",
+          "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden."
+        }
+      },
+      "device": {
+        "title": "Heizgerät auswählen",
+        "description": "Wähle dein KWB Heizgerät.",
+        "data": {
+          "heating_device": "Heizgerät"
+        }
+      },
+      "modules": {
+        "title": "Zusatzmodule auswählen",
+        "description": "Wähle die installierten Zusatzmodule. Leer lassen wenn keine vorhanden.",
+        "data": {
+          "addon_modules": "Zusatzmodule",
+          "expert_mode": "Expertenmodus aktivieren (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen)"
+        }
+      },
+      "module_instances": {
+        "title": "Erkannte {module_name}-Instanzen",
+        "description": "Die folgenden Instanzen wurden automatisch via Modbus erkannt. Bitte überprüfen und bei Bedarf ergänzen oder entfernen.",
+        "data": {
+          "instances": "Aktive Instanzen"
+        }
+      },
+      "module_instance_names": {
+        "title": "{module_name}-Instanzen benennen",
+        "description": "Vergib für jede {module_name}-Instanz einen Anzeigenamen. Dieser Name wird für alle Entitäten dieser Instanz verwendet (z.B. 'Fußbodenheizung', 'Badezimmer')."
+      },
+      "reconfigure": {
+        "title": "Verbindung aktualisieren",
+        "description": "Passe die Verbindungseinstellungen für diesen Eintrag an.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "scan_interval": "Abfrage-Intervall (Sekunden)",
+          "expert_mode": "Expertenmodus aktivieren (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen)"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des KWB-Controllers.",
+          "port": "TCP-Port für Modbus (Standard: 502).",
+          "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden.",
+          "expert_mode": "Aktiviert oder deaktiviert Experten-Selects (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur KWB Heizung fehlgeschlagen. IP-Adresse und Port prüfen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert.",
+      "reconfigure_successful": "Neukonfiguration erfolgreich."
+    }
+  },
+  "selector": {
+    "heating_device": {
+      "options": {
+        "easyfire": "KWB EasyFire",
+        "multifire": "KWB MultiFire",
+        "pelletfire_plus": "KWB PelletFire+",
+        "combifire": "KWB CombiFire",
+        "cf2": "KWB CF 2",
+        "cf1_5": "KWB CF 1.5",
+        "cf1": "KWB CF 1"
+      }
+    },
+    "addon_modules": {
+      "options": {
+        "buffer_tank": "Pufferspeicher",
+        "solar": "Solar",
+        "heating_circuits": "Heizkreise",
+        "dhwc": "Warmwasserbereitung (DHWC)",
+        "circulation": "Zirkulation",
+        "secondary_heating_sources": "Sekundärwärmequellen",
+        "heat_quantity_meter": "Wärmemengenzähler",
+        "boiler_master_slave": "Kessel Master-Slave",
+        "wmm_autonom": "WMM Autonom"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "fuel_consumption_day": {
+        "name": "Pelletverbrauch Tag"
+      },
+      "fuel_consumption_week": {
+        "name": "Pelletverbrauch Woche"
+      },
+      "fuel_consumption_month": {
+        "name": "Pelletverbrauch Monat"
+      },
+      "fuel_consumption_year": {
+        "name": "Pelletverbrauch Jahr"
+      }
+    }
+  }
+}

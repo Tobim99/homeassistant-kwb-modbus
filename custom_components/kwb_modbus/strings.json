@@ -1,0 +1,107 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to KWB Heating",
+        "description": "Enter the connection details for your KWB heating system.",
+        "data": {
+          "host": "IP Address",
+          "port": "Port",
+          "scan_interval": "Polling interval (seconds)"
+        }
+      },
+      "device": {
+        "title": "Select Heating Device",
+        "description": "Select your KWB heating device model.",
+        "data": {
+          "heating_device": "Heating Device"
+        }
+      },
+      "modules": {
+        "title": "Select Add-on Modules",
+        "description": "Select any additional modules installed in your system. Leave empty if none.",
+        "data": {
+          "addon_modules": "Add-on Modules",
+          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)"
+        }
+      },
+      "module_instances": {
+        "title": "Detected {module_name} Instances",
+        "description": "The following instances were automatically detected via Modbus. Please verify and add or remove instances as needed.",
+        "data": {
+          "instances": "Active Instances"
+        }
+      },
+      "module_instance_names": {
+        "title": "Name {module_name} Instances",
+        "description": "Give each {module_name} instance a friendly name. This name will be used for all entities of that instance (e.g. 'Underfloor heating', 'Bathroom')."
+      },
+      "reconfigure": {
+        "title": "Reconfigure connection",
+        "description": "Update the connection settings for this entry.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "scan_interval": "Scan interval (seconds)",
+          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the KWB controller.",
+          "port": "TCP port for Modbus (default: 502).",
+          "scan_interval": "Interval for polling Modbus data in seconds.",
+          "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to KWB heating system. Please check IP address and port.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured.",
+      "reconfigure_successful": "Reconfiguration was successful."
+    }
+  },
+  "selector": {
+    "heating_device": {
+      "options": {
+        "easyfire": "KWB EasyFire",
+        "multifire": "KWB MultiFire",
+        "pelletfire_plus": "KWB PelletFire+",
+        "combifire": "KWB CombiFire",
+        "cf2": "KWB CF 2",
+        "cf1_5": "KWB CF 1.5",
+        "cf1": "KWB CF 1"
+      }
+    },
+    "addon_modules": {
+      "options": {
+        "buffer_tank": "Buffer Storage Tank",
+        "solar": "Solar",
+        "heating_circuits": "Heating Circuits",
+        "dhwc": "DHWC (Domestic Hot Water)",
+        "circulation": "Circulation",
+        "secondary_heating_sources": "Secondary Heating Sources",
+        "heat_quantity_meter": "Heat Quantity Meter",
+        "boiler_master_slave": "Boiler Master-Slave Circuit",
+        "wmm_autonom": "WMM Autonom"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "fuel_consumption_day": {
+        "name": "Fuel consumption day"
+      },
+      "fuel_consumption_week": {
+        "name": "Fuel consumption week"
+      },
+      "fuel_consumption_month": {
+        "name": "Fuel consumption month"
+      },
+      "fuel_consumption_year": {
+        "name": "Fuel consumption year"
+      }
+    }
+  }
+}
