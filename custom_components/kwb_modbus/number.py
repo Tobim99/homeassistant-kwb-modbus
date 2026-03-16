@@ -19,6 +19,7 @@ from .const import (
     MODBUS_HOLDING_REG_START,
 )
 from .coordinator import KWBDataUpdateCoordinator
+from .entity_translations import param_to_translation_key
 from .register_maps.types import RegisterDef
 
 
@@ -76,6 +77,7 @@ async def async_setup_entry(
                 register.address < MODBUS_HOLDING_REG_START
                 or register.is_status
                 or register.value_table
+                or not register.writable
             ):
                 continue
             # Some optional modules expose shared technical holding registers.
@@ -111,7 +113,7 @@ class KWBNumberEntity(CoordinatorEntity[KWBDataUpdateCoordinator], NumberEntity)
         self._entry = entry
         self._instance_names = instance_names or {}
         self._attr_unique_id = f"{entry.entry_id}_number_{register.address}"
-        self._attr_name = register.name
+        self._attr_translation_key = param_to_translation_key(register.param)
         self._attr_native_unit_of_measurement = register.unit or None
 
         scale = register.scale if register.scale else 1.0
