@@ -17,6 +17,13 @@
           "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings)."
         }
       },
+      "register_profile": {
+        "title": "Registerprofil auswählen",
+        "description": "Erkannte Firmware: {detected_version}. Vorgeschlagenes Profil: {detected_profile}. Du kannst Auto-Erkennung behalten oder manuell überschreiben.",
+        "data": {
+          "register_profile": "Registerprofil"
+        }
+      },
       "device": {
         "title": "Heizgerät auswählen",
         "description": "Wähle dein KWB Heizgerät.",
@@ -50,6 +57,7 @@
           "port": "Port",
           "scan_interval": "Abfrage-Intervall (Sekunden)",
           "expert_mode": "Enable expert mode",
+          "register_profile": "Registerprofil",
           "addon_modules": "Zusatzmodule"
         },
         "data_description": {
@@ -57,6 +65,7 @@
           "port": "TCP-Port für Modbus (Standard: 502).",
           "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden.",
           "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings).",
+          "register_profile": "Wähle, welches firmware-spezifische Registerprofil verwendet werden soll.",
           "addon_modules": "Wähle installierte Zusatzmodule aus. Module können hier hinzugefügt oder entfernt werden."
         }
       }
@@ -93,6 +102,12 @@
         "heat_quantity_meter": "Wärmemengenzähler",
         "boiler_master_slave": "Kessel Master-Slave",
         "wmm_autonom": "WMM Autonom"
+      }
+    },
+    "register_profile": {
+      "options": {
+        "auto": "Automatisch erkennen",
+        "v22": "KWB v22 (22.4.0)"
       }
     }
   },

@@ -17,6 +17,13 @@
           "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings)."
         }
       },
+      "register_profile": {
+        "title": "Select Register Profile",
+        "description": "Detected firmware: {detected_version}. Suggested profile: {detected_profile}. You can keep auto-detect or override manually.",
+        "data": {
+          "register_profile": "Register Profile"
+        }
+      },
       "device": {
         "title": "Select Heating Device",
         "description": "Select your KWB heating device model.",
@@ -50,6 +57,7 @@
           "port": "Port",
           "scan_interval": "Scan interval (seconds)",
           "expert_mode": "Enable expert mode",
+          "register_profile": "Register Profile",
           "addon_modules": "Add-on Modules"
         },
         "data_description": {
@@ -57,6 +65,7 @@
           "port": "TCP port for Modbus (default: 502).",
           "scan_interval": "Interval for polling Modbus data in seconds.",
           "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings).",
+          "register_profile": "Select which firmware-specific register profile should be used.",
           "addon_modules": "Select installed add-on modules. You can add or remove modules here."
         }
       }
@@ -93,6 +102,12 @@
         "heat_quantity_meter": "Heat Quantity Meter",
         "boiler_master_slave": "Boiler Master-Slave Circuit",
         "wmm_autonom": "WMM Autonom"
+      }
+    },
+    "register_profile": {
+      "options": {
+        "auto": "Auto detect",
+        "v22": "KWB v22 (22.4.0)"
       }
     }
   },
