@@ -22,6 +22,7 @@ WRITE_MULTIPLE_REGISTERS = 16  # write_registers command
 # Conf keys
 CONF_HEATING_DEVICE = "heating_device"
 CONF_ADDON_MODULES = "addon_modules"
+CONF_REGISTER_PROFILE = "register_profile"
 CONF_SLAVE_ID = "slave_id"
 CONF_DISCOVERED_SENSORS = "discovered_sensors"
 # Maps module_key → list of selected instance labels (e.g. {"heating_circuits": ["HC 1.1", "HC 2.1"]})
@@ -30,6 +31,11 @@ CONF_ACTIVE_INSTANCES = "active_instances"
 CONF_INSTANCE_NAMES = "instance_names"
 
 DEFAULT_SLAVE_ID = 1
+
+REGISTER_PROFILE_AUTO = "auto"
+REGISTER_PROFILE_V22 = "v22"
+REGISTER_PROFILE_V25 = "v25"
+DEFAULT_REGISTER_PROFILE = REGISTER_PROFILE_V22
 
 HEATING_DEVICES = {
     "easyfire": "KWB EasyFire",

@@ -18,14 +18,17 @@ from .const import (
     CONF_ADDON_MODULES,
     CONF_DISCOVERED_SENSORS,
     CONF_HEATING_DEVICE,
+    CONF_REGISTER_PROFILE,
     CONF_SLAVE_ID,
+    DEFAULT_REGISTER_PROFILE,
     DEFAULT_SLAVE_ID,
     DOMAIN,
     INDEXED_MODULES,
     MODBUS_HOLDING_REG_START,
     SENSOR_STATUS_OK,
 )
-from .register_map import REGISTERS, SELECT_REGISTERS, VALUE_TABLES, RegisterDef
+from .profiles import get_register_profile
+from .register_maps.types import RegisterDef, SelectRegisterDef
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +49,9 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
         self.slave_id = entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
         self._heating_device: str = entry.data[CONF_HEATING_DEVICE]
         self._addon_modules: list[str] = entry.data.get(CONF_ADDON_MODULES, [])
+        selected_profile = entry.data.get(CONF_REGISTER_PROFILE, DEFAULT_REGISTER_PROFILE)
+        self._profile = get_register_profile(selected_profile)
+        self._register_profile_key = self._profile.key
 
         super().__init__(
             hass,
@@ -58,11 +64,23 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
         """Return list of all active module keys (always-on + device + addons)."""
         return [*ALWAYS_ACTIVE_MODULES, self._heating_device, *self._addon_modules]
 
+    def get_registers_for_module(self, module_key: str) -> list[RegisterDef]:
+        """Return all value/status registers for one module in active profile."""
+        return self._profile.registers.get(module_key, [])
+
+    def get_select_registers_for_module(self, module_key: str) -> list[SelectRegisterDef]:
+        """Return all select registers for one module in active profile."""
+        return self._profile.select_registers.get(module_key, [])
+
+    def get_value_table(self, value_table: str) -> dict[int, str]:
+        """Return value-table mapping for active profile."""
+        return self._profile.value_tables.get(value_table, {})
+
     def get_all_registers(self) -> list[RegisterDef]:
         """Return all registers for active modules (values + status)."""
         result: list[RegisterDef] = []
         for module_key in self.get_all_module_keys():
-            result.extend(REGISTERS.get(module_key, []))
+            result.extend(self.get_registers_for_module(module_key))
         return result
 
     def get_active_registers(self) -> list[RegisterDef]:
@@ -100,7 +118,7 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
             await self.client.connect()
 
         for module_key in self.get_all_module_keys():
-            for r in REGISTERS.get(module_key, []):
+            for r in self.get_registers_for_module(module_key):
                 if r.is_status:
                     continue
 
@@ -151,11 +169,11 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
             sum(1 for v in discovered.values() if not v),
         )
 
-    def get_all_select_registers(self) -> list:
+    def get_all_select_registers(self) -> list[SelectRegisterDef]:
         """Return all select registers for active modules."""
-        result = []
+        result: list[SelectRegisterDef] = []
         for module_key in self.get_all_module_keys():
-            result.extend(SELECT_REGISTERS.get(module_key, []))
+            result.extend(self.get_select_registers_for_module(module_key))
         return result
 
     async def async_read_holding_register(self, address: int) -> int | None:
@@ -312,8 +330,8 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
 
             value: Any = raw * r.scale if r.scale != 1.0 else raw
 
-            if r.value_table and r.value_table in VALUE_TABLES:
-                value = VALUE_TABLES[r.value_table].get(int(raw), str(raw))
+            if r.value_table and r.value_table in self._profile.value_tables:
+                value = self._profile.value_tables[r.value_table].get(int(raw), str(raw))
 
             processed[r.address] = value
 

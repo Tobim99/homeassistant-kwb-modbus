@@ -19,7 +19,7 @@ from .const import (
     MODBUS_HOLDING_REG_START,
 )
 from .coordinator import KWBDataUpdateCoordinator
-from .register_map import REGISTERS, RegisterDef
+from .register_maps.types import RegisterDef
 
 
 def _encode_16(value: int, data_type: str) -> int | None:
@@ -71,7 +71,7 @@ async def async_setup_entry(
     entities: list[KWBNumberEntity] = []
     seen_addresses: set[int] = set()
     for module_key in coordinator.get_all_module_keys():
-        for register in REGISTERS.get(module_key, []):
+        for register in coordinator.get_registers_for_module(module_key):
             if (
                 register.address < MODBUS_HOLDING_REG_START
                 or register.is_status

@@ -33,7 +33,7 @@ from .const import (
     SW_VERSION_ADDRESSES,
 )
 from .coordinator import KWBDataUpdateCoordinator
-from .register_map import VALUE_TABLES, RegisterDef
+from .register_maps.types import RegisterDef
 
 
 async def async_setup_entry(
@@ -175,7 +175,9 @@ class KWBSensor(CoordinatorEntity[KWBDataUpdateCoordinator], SensorEntity):
         if register.value_table:
             # ENUM sensors must not have a unit of measurement
             self._attr_device_class = SensorDeviceClass.ENUM
-            self._attr_options = list(VALUE_TABLES.get(register.value_table, {}).values())
+            self._attr_options = list(
+                coordinator.get_value_table(register.value_table).values()
+            )
         elif unit == "°C":
             self._attr_native_unit_of_measurement = unit
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
