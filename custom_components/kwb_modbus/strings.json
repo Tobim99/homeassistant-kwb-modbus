@@ -7,7 +7,8 @@
         "data": {
           "host": "IP Address",
           "port": "Port",
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "expert_mode": "Enable expert mode"
         }
       },
       "device": {
@@ -21,8 +22,7 @@
         "title": "Select Add-on Modules",
         "description": "Select any additional modules installed in your system. Leave empty if none.",
         "data": {
-          "addon_modules": "Add-on Modules",
-          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)"
+          "addon_modules": "Add-on Modules"
         }
       },
       "module_instances": {
@@ -43,7 +43,7 @@
           "host": "Host",
           "port": "Port",
           "scan_interval": "Scan interval (seconds)",
-          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)",
+          "expert_mode": "Enable expert mode",
           "addon_modules": "Add-on Modules"
         },
         "data_description": {
