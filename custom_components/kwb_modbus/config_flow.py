@@ -40,7 +40,7 @@ from .register_map import REGISTERS, SELECT_REGISTERS
 
 _LOGGER = logging.getLogger(__name__)
 
-# Step 1: Host and Port (required)
+# Step 1: Connection and expert controls
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -48,6 +48,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.Coerce(
             int
         ),
+        vol.Optional(CONF_EXPERT_MODE, default=False): bool,
     }
 )
 
@@ -211,7 +212,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._modules_data = {
                 CONF_ADDON_MODULES: user_input.get(CONF_ADDON_MODULES, []),
-                CONF_EXPERT_MODE: user_input.get(CONF_EXPERT_MODE, False),
+                CONF_EXPERT_MODE: self._connection_data.get(CONF_EXPERT_MODE, False),
             }
 
             # Build queue of modules that have indexed SELECT_REGISTERS entries
@@ -245,7 +246,6 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                         multiple=True,
                     )
                 ),
-                vol.Optional(CONF_EXPERT_MODE, default=False): bool,
             }
         )
         return self.async_show_form(step_id="modules", data_schema=schema)

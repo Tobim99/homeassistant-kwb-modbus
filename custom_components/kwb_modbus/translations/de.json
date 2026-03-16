@@ -7,12 +7,14 @@
         "data": {
           "host": "IP-Adresse",
           "port": "Port",
-          "scan_interval": "Abfrageintervall (Sekunden)"
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "expert_mode": "Enable expert mode"
         },
         "data_description": {
           "host": "IP-Adresse oder Hostname des KWB-Controllers.",
           "port": "TCP-Port für Modbus (Standard: 502).",
-          "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden."
+          "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden.",
+          "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings)."
         }
       },
       "device": {
@@ -26,8 +28,7 @@
         "title": "Zusatzmodule auswählen",
         "description": "Wähle die installierten Zusatzmodule. Leer lassen wenn keine vorhanden.",
         "data": {
-          "addon_modules": "Zusatzmodule",
-          "expert_mode": "Expertenmodus aktivieren (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen)"
+          "addon_modules": "Zusatzmodule"
         }
       },
       "module_instances": {
@@ -48,14 +49,14 @@
           "host": "Host",
           "port": "Port",
           "scan_interval": "Abfrage-Intervall (Sekunden)",
-          "expert_mode": "Expertenmodus aktivieren (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen)",
+          "expert_mode": "Enable expert mode",
           "addon_modules": "Zusatzmodule"
         },
         "data_description": {
           "host": "IP-Adresse oder Hostname des KWB-Controllers.",
           "port": "TCP-Port für Modbus (Standard: 502).",
           "scan_interval": "Intervall für die Abfrage von Modbus-Daten in Sekunden.",
-          "expert_mode": "Aktiviert oder deaktiviert Experten-Selects (Kesselprogramm, Externe Vorgabe, Zündungseinstellungen).",
+          "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings).",
           "addon_modules": "Wähle installierte Zusatzmodule aus. Module können hier hinzugefügt oder entfernt werden."
         }
       }
