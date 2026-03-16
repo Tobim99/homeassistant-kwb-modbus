@@ -70,6 +70,11 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
         discovered: dict[str, bool] = self.entry.data.get(CONF_DISCOVERED_SENSORS, {})
         active: list[RegisterDef] = []
         for register in self.get_all_registers():
+            # Holding registers are writable config/setpoint values and do not have
+            # discoverable status sensors. Always keep them active.
+            if register.address >= MODBUS_HOLDING_REG_START:
+                active.append(register)
+                continue
             if register.is_status:
                 # Status registers mirror the enable state of their paired value register.
                 # In the KWB map this is consistently value_address + 1.
@@ -102,7 +107,11 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
                 uid = f"kwb_{r.address}"
 
                 # Non-indexed sensors are always enabled
-                if module_key not in INDEXED_MODULES or not r.index:
+                if (
+                    module_key not in INDEXED_MODULES
+                    or not r.index
+                    or r.address >= MODBUS_HOLDING_REG_START
+                ):
                     discovered[uid] = True
                     continue
 
