@@ -42,19 +42,21 @@
         "description": "Give each {module_name} instance a friendly name. This name will be used for all entities of that instance (e.g. 'Underfloor heating', 'Bathroom')."
       },
       "reconfigure": {
-        "title": "Reconfigure connection",
-        "description": "Update the connection settings for this entry.",
+        "title": "Reconfigure connection and modules",
+        "description": "Update the connection settings and selected modules for this entry.",
         "data": {
           "host": "Host",
           "port": "Port",
           "scan_interval": "Scan interval (seconds)",
-          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)"
+          "expert_mode": "Enable expert controls (Boiler program, External specification, Ignition settings)",
+          "addon_modules": "Add-on Modules"
         },
         "data_description": {
           "host": "IP address or hostname of the KWB controller.",
           "port": "TCP port for Modbus (default: 502).",
           "scan_interval": "Interval for polling Modbus data in seconds.",
-          "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings)."
+          "expert_mode": "Enable or disable expert select entities (Boiler program, External specification, Ignition settings).",
+          "addon_modules": "Select installed add-on modules. You can add or remove modules here."
         }
       }
     },

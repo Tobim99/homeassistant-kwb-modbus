@@ -153,6 +153,8 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         self._instance_names: dict[str, dict[str, str]] = {}
         # Discovered (pre-selected) instances per module from Modbus scan
         self._discovered_indices: dict[str, list[str]] = {}
+        # Config entry currently being reconfigured (if any)
+        self._reconfigure_target_entry_id: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -219,6 +221,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                 if _sorted_instances(m)
             ]
             self._active_instances = {}
+            self._instance_names = {}
 
             # Discover active instances via Modbus for each pending module
             host = self._connection_data[CONF_HOST]
@@ -264,13 +267,17 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
 
         all_instances = _sorted_instances(self._current_indexed_module)
         discovered = self._discovered_indices.get(self._current_indexed_module, [])
+        previous_selection = self._active_instances.get(self._current_indexed_module, [])
+        default_selected = [inst for inst in previous_selection if inst in all_instances]
+        if not default_selected:
+            default_selected = [inst for inst in discovered if inst in all_instances]
         module_label = ADDON_MODULES.get(
             self._current_indexed_module, self._current_indexed_module
         )
 
         schema = vol.Schema(
             {
-                vol.Optional("instances", default=discovered): SelectSelector(
+                vol.Optional("instances", default=default_selected): SelectSelector(
                     SelectSelectorConfig(
                         options=all_instances,
                         multiple=True,
@@ -296,6 +303,9 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         selected = self._active_instances.get(self._current_indexed_module, [])
 
         if user_input is not None:
+            if not selected:
+                self._instance_names.pop(self._current_indexed_module, None)
+                return await self._advance_to_next_module()
             self._instance_names[self._current_indexed_module] = {
                 inst: user_input.get(inst, inst) for inst in selected
             }
@@ -304,8 +314,9 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         module_label = ADDON_MODULES.get(
             self._current_indexed_module, self._current_indexed_module
         )
+        known_names = self._instance_names.get(self._current_indexed_module, {})
         schema = vol.Schema(
-            {vol.Optional(inst, default=inst): str for inst in selected}
+            {vol.Optional(inst, default=known_names.get(inst, inst)): str for inst in selected}
         )
         return self.async_show_form(
             step_id="module_instance_names",
@@ -316,9 +327,37 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
     async def _advance_to_next_module(self) -> ConfigFlowResult:
         """Pop the next pending module or finish setup if none remain."""
         if not self._pending_indexed_modules:
-            return self._create_entry()
+            return self._finish_flow()
         self._current_indexed_module = self._pending_indexed_modules.pop(0)
         return await self.async_step_module_instances()
+
+    def _finish_flow(self) -> ConfigFlowResult:
+        """Create a new entry or update an existing one after all steps are complete."""
+        if self._reconfigure_target_entry_id is not None:
+            config_entry = self.hass.config_entries.async_get_entry(
+                self._reconfigure_target_entry_id
+            )
+            if config_entry is None:
+                return self.async_abort(reason="unknown")
+
+            updated_data = {
+                **config_entry.data,
+                CONF_HOST: self._connection_data[CONF_HOST],
+                CONF_PORT: self._connection_data[CONF_PORT],
+                CONF_SCAN_INTERVAL: self._connection_data[CONF_SCAN_INTERVAL],
+                CONF_ADDON_MODULES: self._modules_data[CONF_ADDON_MODULES],
+                CONF_EXPERT_MODE: self._modules_data[CONF_EXPERT_MODE],
+                CONF_ACTIVE_INSTANCES: self._active_instances,
+                CONF_INSTANCE_NAMES: self._instance_names,
+                # Trigger re-discovery on reload so added/removed modules are refreshed.
+                CONF_DISCOVERED_SENSORS: {},
+            }
+            return self.async_update_reload_and_abort(
+                config_entry,
+                data_updates=updated_data,
+                reason="reconfigure_successful",
+            )
+        return self._create_entry()
 
     def _create_entry(self) -> ConfigFlowResult:
         """Create the config entry once all steps are complete."""
@@ -341,31 +380,71 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle reconfiguration of the integration."""
-        config_entry = self.hass.config_entries.async_get_entry(
-            self.context["entry_id"]
-        )
+        config_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if config_entry is None:
+            return self.async_abort(reason="unknown")
 
         if user_input is not None:
+            merged_data = {**config_entry.data, **user_input}
             try:
-                await validate_connection(self.hass, user_input)
+                await validate_connection(self.hass, merged_data)
             except CannotConnect:
                 return self.async_show_form(
                     step_id="reconfigure",
-                    data_schema=self.async_get_options_schema(config_entry.data),
+                    data_schema=self.async_get_options_schema(merged_data),
                     errors={"base": "cannot_connect"},
                 )
             except Exception:  # noqa: BLE001
                 return self.async_show_form(
                     step_id="reconfigure",
-                    data_schema=self.async_get_options_schema(config_entry.data),
+                    data_schema=self.async_get_options_schema(merged_data),
                     errors={"base": "unknown"},
                 )
 
-            return self.async_update_reload_and_abort(
-                config_entry,
-                data_updates=user_input,
-                reason="reconfigure_successful",
-            )
+            self._reconfigure_target_entry_id = config_entry.entry_id
+            self._connection_data = {
+                CONF_HOST: merged_data[CONF_HOST],
+                CONF_PORT: merged_data[CONF_PORT],
+                CONF_SCAN_INTERVAL: merged_data.get(
+                    CONF_SCAN_INTERVAL,
+                    config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ),
+                CONF_HEATING_DEVICE: config_entry.data[CONF_HEATING_DEVICE],
+                CONF_SLAVE_ID: config_entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID),
+            }
+            self._modules_data = {
+                CONF_ADDON_MODULES: merged_data.get(CONF_ADDON_MODULES, []),
+                CONF_EXPERT_MODE: merged_data.get(CONF_EXPERT_MODE, False),
+            }
+
+            selected_modules = self._modules_data[CONF_ADDON_MODULES]
+            existing_active = config_entry.data.get(CONF_ACTIVE_INSTANCES, {})
+            existing_names = config_entry.data.get(CONF_INSTANCE_NAMES, {})
+            self._active_instances = {
+                module_key: existing_active.get(module_key, [])
+                for module_key in selected_modules
+                if module_key in existing_active
+            }
+            self._instance_names = {
+                module_key: existing_names.get(module_key, {})
+                for module_key in selected_modules
+                if module_key in existing_names
+            }
+
+            self._pending_indexed_modules = [
+                m for m in selected_modules if _sorted_instances(m)
+            ]
+
+            host = self._connection_data[CONF_HOST]
+            port = self._connection_data[CONF_PORT]
+            slave_id = self._connection_data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+            self._discovered_indices = {}
+            for module_key in self._pending_indexed_modules:
+                self._discovered_indices[module_key] = (
+                    await _discover_active_instances(host, port, slave_id, module_key)
+                )
+
+            return await self._advance_to_next_module()
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -387,6 +466,17 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_EXPERT_MODE,
                     default=current_data.get(CONF_EXPERT_MODE, False),
                 ): bool,
+                vol.Optional(
+                    CONF_ADDON_MODULES,
+                    default=current_data.get(CONF_ADDON_MODULES, []),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(ADDON_MODULES.keys()),
+                        translation_key="addon_modules",
+                        mode=SelectSelectorMode.LIST,
+                        multiple=True,
+                    )
+                ),
             }
         )
 
