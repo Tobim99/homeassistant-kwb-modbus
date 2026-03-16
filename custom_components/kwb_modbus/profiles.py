@@ -12,6 +12,11 @@ from .const import (
 )
 from .register_maps.types import RegisterDef, SelectRegisterDef
 from .register_maps.v22_4_0 import REGISTERS, SELECT_REGISTERS, VALUE_TABLES
+from .register_maps.v25_4_1 import (
+    REGISTERS as REGISTERS_V25,
+    SELECT_REGISTERS as SELECT_REGISTERS_V25,
+    VALUE_TABLES as VALUE_TABLES_V25,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +35,12 @@ REGISTER_PROFILES: dict[str, RegisterProfile] = {
         registers=REGISTERS,
         select_registers=SELECT_REGISTERS,
         value_tables=VALUE_TABLES,
+    ),
+    REGISTER_PROFILE_V25: RegisterProfile(
+        key=REGISTER_PROFILE_V25,
+        registers=REGISTERS_V25,
+        select_registers=SELECT_REGISTERS_V25,
+        value_tables=VALUE_TABLES_V25,
     ),
 }
 

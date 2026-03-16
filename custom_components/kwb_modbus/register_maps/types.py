@@ -19,6 +19,7 @@ class RegisterDef:
     index: str  # e.g. "BUF 1", "HC 1.1", "" if none
     value_table: str  # name of value table or ""
     is_status: bool  # True if this is a sensor_status register
+    writable: bool = True
 
 
 @dataclass

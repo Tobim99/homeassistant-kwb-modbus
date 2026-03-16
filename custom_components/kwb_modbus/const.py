@@ -39,6 +39,7 @@ DEFAULT_REGISTER_PROFILE = REGISTER_PROFILE_V22
 
 HEATING_DEVICES = {
     "easyfire": "KWB EasyFire",
+    "ef3": "KWB EF3",
     "multifire": "KWB MultiFire",
     "pelletfire_plus": "KWB PelletFire+",
     "combifire": "KWB CombiFire",
@@ -58,6 +59,8 @@ ADDON_MODULES = {
     "heat_quantity_meter": "Heat Quantity Meter",
     "boiler_master_slave": "Boiler Master-Slave Circuit",
     "wmm_autonom": "WMM Autonom",
+    "easyair_plus": "KWB EasyAir Plus",
+    "transfer_station": "Transfer Station",
 }
 
 # Sensor status values from Modbus ValueTable system_sensor_status_t
@@ -161,6 +164,8 @@ INDEXED_MODULES = [
     "secondary_heating_sources",
     "solar",
     "heat_quantity_meter",
+    "easyair_plus",
+    "transfer_station",
 ]
 
 

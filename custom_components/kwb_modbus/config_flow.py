@@ -77,7 +77,7 @@ def _format_firmware_version(
 
 def _sorted_instances(profile: RegisterProfile, module_key: str) -> list[str]:
     """Return naturally sorted unique instance labels for one module."""
-    indices = {r.index for r in profile.select_registers.get(module_key, []) if r.index}
+    indices = {r.index for r in profile.registers.get(module_key, []) if r.index}
     return sorted(indices, key=_natural_sort_key)
 
 
