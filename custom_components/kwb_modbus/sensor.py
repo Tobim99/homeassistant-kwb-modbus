@@ -33,7 +33,8 @@ from .const import (
     SW_VERSION_ADDRESSES,
 )
 from .coordinator import KWBDataUpdateCoordinator
-from .register_map import VALUE_TABLES, RegisterDef
+from .entity_translations import param_to_translation_key
+from .register_maps.types import RegisterDef
 
 
 async def async_setup_entry(
@@ -90,8 +91,13 @@ async def async_setup_entry(
         for r in all_registers
         if (
             r.address not in SW_VERSION_ADDRESSES
-            # Avoid duplicate entities: holding values are handled by select/number.
-            and (r.is_status or r.address < MODBUS_HOLDING_REG_START)
+            # Writable holding registers are exposed as number/select entities.
+            # Read-only holding registers should remain sensors.
+            and (
+                r.is_status
+                or r.address < MODBUS_HOLDING_REG_START
+                or (r.address >= MODBUS_HOLDING_REG_START and not r.writable)
+            )
         )
         and (not r.index or r.index in active_indices)
     ]
@@ -164,7 +170,7 @@ class KWBSensor(CoordinatorEntity[KWBDataUpdateCoordinator], SensorEntity):
         self._status_address = status_address
         self._attr_unique_id = f"{entry.entry_id}_{register.address}"
         self._attr_entity_registry_enabled_default = enabled_default
-        self._attr_name = register.name
+        self._attr_translation_key = param_to_translation_key(register.param)
         if (
             register.address in DIAGNOSTIC_ADDRESSES
             or register.is_status
@@ -175,7 +181,9 @@ class KWBSensor(CoordinatorEntity[KWBDataUpdateCoordinator], SensorEntity):
         if register.value_table:
             # ENUM sensors must not have a unit of measurement
             self._attr_device_class = SensorDeviceClass.ENUM
-            self._attr_options = list(VALUE_TABLES.get(register.value_table, {}).values())
+            self._attr_options = list(
+                coordinator.get_value_table(register.value_table).values()
+            )
         elif unit == "°C":
             self._attr_native_unit_of_measurement = unit
             self._attr_device_class = SensorDeviceClass.TEMPERATURE

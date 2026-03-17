@@ -13,6 +13,7 @@ Custom Integration zur Anbindung von KWB-Heizungen per Modbus TCP in Home Assist
 - Frei benennbare Instanzen (z. B. `HC 1.1` -> `Wohnzimmer`)
 - Expertenmodus für zusätzliche, standardmäßig deaktivierte Steuer-Selects
 - Button `Re-run Sensor Discovery` zum erneuten Erkennen von Sensoren
+- Automatische Erkennung des Firmware-Profils mit manueller Override-Auswahl
 
 ## Unterstützte Heizgeräte
 
@@ -42,7 +43,7 @@ Custom Integration zur Anbindung von KWB-Heizungen per Modbus TCP in Home Assist
 
 ## Getestet mit
 
-- Anlagen-/Firmware-Version: `22.4.0+`
+- Anlagen-/Firmware-Versionen: `22.4.0` und `25.4.1`
 - Legende: `✓` = getestet, `X` = nicht getestet
 
 ## Voraussetzungen

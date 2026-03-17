@@ -22,7 +22,8 @@ from .const import (
     MODBUS_HOLDING_REG_START,
 )
 from .coordinator import KWBDataUpdateCoordinator
-from .register_map import REGISTERS, VALUE_TABLES, SelectRegisterDef
+from .entity_translations import param_to_translation_key
+from .register_maps.types import SelectRegisterDef
 
 
 async def async_setup_entry(
@@ -50,17 +51,37 @@ async def async_setup_entry(
         for inst, name in names.items()
     }
 
-    existing = coordinator.get_all_select_registers()
+    writable_select_keys: set[tuple[str, int, str, str]] = set()
+    for module_key in coordinator.get_all_module_keys():
+        for register in coordinator.get_registers_for_module(module_key):
+            if (
+                register.address < MODBUS_HOLDING_REG_START
+                or register.is_status
+                or not register.value_table
+                or not register.writable
+            ):
+                continue
+            writable_select_keys.add(
+                (module_key, register.address, register.param, register.index or "")
+            )
+
+    existing = [
+        register
+        for register in coordinator.get_all_select_registers()
+        if (register.module, register.address, register.param, register.index or "")
+        in writable_select_keys
+    ]
     existing_keys = {
         (s.module, s.address, s.param, s.index or "") for s in existing
     }
     auto_generated: list[SelectRegisterDef] = []
     for module_key in coordinator.get_all_module_keys():
-        for register in REGISTERS.get(module_key, []):
+        for register in coordinator.get_registers_for_module(module_key):
             if (
                 register.address < MODBUS_HOLDING_REG_START
                 or register.is_status
                 or not register.value_table
+                or not register.writable
             ):
                 continue
             key = (
@@ -110,9 +131,9 @@ class KWBSelectEntity(CoordinatorEntity[KWBDataUpdateCoordinator], SelectEntity)
         self._entry = entry
         self._instance_names = instance_names or {}
         self._attr_unique_id = f"{entry.entry_id}_select_{register.address}"
-        self._attr_name = register.name
+        self._attr_translation_key = param_to_translation_key(register.param)
 
-        table = VALUE_TABLES.get(register.value_table, {})
+        table = coordinator.get_value_table(register.value_table)
         self._table: dict[int, str] = table
         self._reverse_table: dict[str, int] = {v: k for k, v in table.items()}
         self._attr_options = list(table.values())

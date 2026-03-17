@@ -28,15 +28,23 @@ from .const import (
     CONF_EXPERT_MODE,
     CONF_HEATING_DEVICE,
     CONF_INSTANCE_NAMES,
+    CONF_REGISTER_PROFILE,
     CONF_SLAVE_ID,
+    DEFAULT_REGISTER_PROFILE,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SLAVE_ID,
     DOMAIN,
     HEATING_DEVICES,
+    REGISTER_PROFILE_AUTO,
     SENSOR_STATUS_OK,
 )
-from .register_map import REGISTERS, SELECT_REGISTERS
+from .profiles import (
+    REGISTER_PROFILES,
+    RegisterProfile,
+    detect_profile_key_from_firmware,
+    resolve_profile_key,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,14 +66,27 @@ def _natural_sort_key(s: str) -> tuple:
     return tuple(int(p) if p.isdigit() else p for p in re.findall(r"\d+|\D+", s))
 
 
-def _sorted_instances(module_key: str) -> list[str]:
-    """Return naturally sorted unique instance labels available in SELECT_REGISTERS."""
-    indices = {r.index for r in SELECT_REGISTERS.get(module_key, []) if r.index}
+def _format_firmware_version(
+    major: int | None, minor: int | None, patch: int | None
+) -> str:
+    """Format firmware tuple for UI text."""
+    if None in (major, minor, patch):
+        return "unknown"
+    return f"{major}.{minor}.{patch}"
+
+
+def _sorted_instances(profile: RegisterProfile, module_key: str) -> list[str]:
+    """Return naturally sorted unique instance labels for one module."""
+    indices = {r.index for r in profile.registers.get(module_key, []) if r.index}
     return sorted(indices, key=_natural_sort_key)
 
 
 async def _discover_active_instances(
-    host: str, port: int, slave_id: int, module_key: str
+    host: str,
+    port: int,
+    slave_id: int,
+    module_key: str,
+    profile: RegisterProfile,
 ) -> list[str]:
     """Connect to Modbus and discover which instances of a module have active sensors.
 
@@ -74,7 +95,7 @@ async def _discover_active_instances(
     """
     # Collect one representative (index → status_address) pair per instance
     index_status: dict[str, int] = {}
-    for r in REGISTERS.get(module_key, []):
+    for r in profile.registers.get(module_key, []):
         if r.index and not r.is_status and r.index not in index_status:
             index_status[r.index] = r.address + 1
 
@@ -112,6 +133,10 @@ async def validate_connection(
         host=data[CONF_HOST], port=data[CONF_PORT], timeout=10
     )
 
+    major: int | None = None
+    minor: int | None = None
+    patch: int | None = None
+
     try:
         connection_result = await client.connect()
         if not connection_result:
@@ -119,9 +144,17 @@ async def validate_connection(
                 f"Unable to connect to {data[CONF_HOST]}:{data[CONF_PORT]}"
             )
 
-        result = await client.read_input_registers(address=8204, count=1)
+        result = await client.read_input_registers(
+            address=8204, count=1, device_id=data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+        )
         if result.isError():
             raise CannotConnect("Failed to read any holding registers")  # noqa: TRY301
+
+        version_result = await client.read_input_registers(
+            address=8192, count=3, device_id=data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+        )
+        if not version_result.isError() and len(version_result.registers) >= 3:
+            major, minor, patch = version_result.registers[:3]
 
     except ModbusException as err:
         raise CannotConnect(f"Modbus connection failed: {err}") from err
@@ -131,7 +164,11 @@ async def validate_connection(
         if client.connected:
             client.close()
 
-    return {"title": f"KWB Modbus {data[CONF_HOST]}"}
+    return {
+        "title": f"KWB Modbus {data[CONF_HOST]}",
+        "firmware": (major, minor, patch),
+        "detected_profile": detect_profile_key_from_firmware(major),
+    }
 
 
 class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -156,6 +193,17 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_indices: dict[str, list[str]] = {}
         # Config entry currently being reconfigured (if any)
         self._reconfigure_target_entry_id: str | None = None
+        self._detected_firmware: tuple[int | None, int | None, int | None] = (
+            None,
+            None,
+            None,
+        )
+        self._detected_profile_key: str | None = None
+
+    def _active_profile(self) -> RegisterProfile:
+        """Return resolved profile for current flow state."""
+        selected = self._connection_data.get(CONF_REGISTER_PROFILE, DEFAULT_REGISTER_PROFILE)
+        return REGISTER_PROFILES[resolve_profile_key(selected, self._detected_profile_key)]
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -170,7 +218,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             try:
-                await validate_connection(self.hass, user_input)
+                result = await validate_connection(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except Exception:
@@ -178,10 +226,59 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._connection_data = user_input
-                return await self.async_step_device()
+                self._detected_firmware = result["firmware"]
+                self._detected_profile_key = result["detected_profile"]
+                return await self.async_step_register_profile()
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
+
+    async def async_step_register_profile(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle automatic/override register profile selection."""
+        if user_input is not None:
+            selected = user_input.get(CONF_REGISTER_PROFILE, REGISTER_PROFILE_AUTO)
+            resolved = resolve_profile_key(selected, self._detected_profile_key)
+            if (
+                selected == REGISTER_PROFILE_AUTO
+                and self._detected_profile_key is not None
+                and self._detected_profile_key not in REGISTER_PROFILES
+            ):
+                _LOGGER.warning(
+                    "Detected firmware profile '%s' is not implemented yet; "
+                    "falling back to '%s'",
+                    self._detected_profile_key,
+                    resolved,
+                )
+            self._connection_data[CONF_REGISTER_PROFILE] = resolved
+            return await self.async_step_device()
+
+        detected_version = _format_firmware_version(*self._detected_firmware)
+        default_profile = (
+            self._detected_profile_key
+            if self._detected_profile_key in REGISTER_PROFILES
+            else REGISTER_PROFILE_AUTO
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_REGISTER_PROFILE, default=default_profile): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[REGISTER_PROFILE_AUTO, *REGISTER_PROFILES.keys()],
+                        translation_key="register_profile",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="register_profile",
+            data_schema=schema,
+            description_placeholders={
+                "detected_version": detected_version,
+                "detected_profile": self._detected_profile_key or "unknown",
+            },
         )
 
     async def async_step_device(
@@ -210,6 +307,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle the add-on modules selection step."""
         if user_input is not None:
+            profile = self._active_profile()
             self._modules_data = {
                 CONF_ADDON_MODULES: user_input.get(CONF_ADDON_MODULES, []),
                 CONF_EXPERT_MODE: self._connection_data.get(CONF_EXPERT_MODE, False),
@@ -219,7 +317,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
             self._pending_indexed_modules = [
                 m
                 for m in self._modules_data[CONF_ADDON_MODULES]
-                if _sorted_instances(m)
+                if _sorted_instances(profile, m)
             ]
             self._active_instances = {}
             self._instance_names = {}
@@ -231,7 +329,9 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
             self._discovered_indices = {}
             for module_key in self._pending_indexed_modules:
                 self._discovered_indices[module_key] = (
-                    await _discover_active_instances(host, port, slave_id, module_key)
+                    await _discover_active_instances(
+                        host, port, slave_id, module_key, profile
+                    )
                 )
 
             return await self._advance_to_next_module()
@@ -265,7 +365,9 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_module_instance_names()
             return await self._advance_to_next_module()
 
-        all_instances = _sorted_instances(self._current_indexed_module)
+        all_instances = _sorted_instances(
+            self._active_profile(), self._current_indexed_module
+        )
         discovered = self._discovered_indices.get(self._current_indexed_module, [])
         previous_selection = self._active_instances.get(self._current_indexed_module, [])
         default_selected = [inst for inst in previous_selection if inst in all_instances]
@@ -345,6 +447,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_HOST: self._connection_data[CONF_HOST],
                 CONF_PORT: self._connection_data[CONF_PORT],
                 CONF_SCAN_INTERVAL: self._connection_data[CONF_SCAN_INTERVAL],
+                CONF_REGISTER_PROFILE: self._connection_data[CONF_REGISTER_PROFILE],
                 CONF_ADDON_MODULES: self._modules_data[CONF_ADDON_MODULES],
                 CONF_EXPERT_MODE: self._modules_data[CONF_EXPERT_MODE],
                 CONF_ACTIVE_INSTANCES: self._active_instances,
@@ -387,7 +490,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             merged_data = {**config_entry.data, **user_input}
             try:
-                await validate_connection(self.hass, merged_data)
+                result = await validate_connection(self.hass, merged_data)
             except CannotConnect:
                 return self.async_show_form(
                     step_id="reconfigure",
@@ -401,6 +504,23 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors={"base": "unknown"},
                 )
 
+            self._detected_firmware = result["firmware"]
+            self._detected_profile_key = result["detected_profile"]
+            selected_profile = merged_data.get(CONF_REGISTER_PROFILE, DEFAULT_REGISTER_PROFILE)
+            resolved_profile = resolve_profile_key(
+                selected_profile, self._detected_profile_key
+            )
+            if (
+                selected_profile == REGISTER_PROFILE_AUTO
+                and self._detected_profile_key is not None
+                and self._detected_profile_key not in REGISTER_PROFILES
+            ):
+                _LOGGER.warning(
+                    "Detected firmware profile '%s' is not implemented yet; "
+                    "falling back to '%s'",
+                    self._detected_profile_key,
+                    resolved_profile,
+                )
             self._reconfigure_target_entry_id = config_entry.entry_id
             self._connection_data = {
                 CONF_HOST: merged_data[CONF_HOST],
@@ -409,6 +529,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_SCAN_INTERVAL,
                     config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ),
+                CONF_REGISTER_PROFILE: resolved_profile,
                 CONF_HEATING_DEVICE: config_entry.data[CONF_HEATING_DEVICE],
                 CONF_SLAVE_ID: config_entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID),
             }
@@ -432,7 +553,7 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
             }
 
             self._pending_indexed_modules = [
-                m for m in selected_modules if _sorted_instances(m)
+                m for m in selected_modules if _sorted_instances(self._active_profile(), m)
             ]
 
             host = self._connection_data[CONF_HOST]
@@ -441,7 +562,13 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
             self._discovered_indices = {}
             for module_key in self._pending_indexed_modules:
                 self._discovered_indices[module_key] = (
-                    await _discover_active_instances(host, port, slave_id, module_key)
+                    await _discover_active_instances(
+                        host,
+                        port,
+                        slave_id,
+                        module_key,
+                        self._active_profile(),
+                    )
                 )
 
             return await self._advance_to_next_module()
@@ -466,6 +593,16 @@ class KwbModbusConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_EXPERT_MODE,
                     default=current_data.get(CONF_EXPERT_MODE, False),
                 ): bool,
+                vol.Optional(
+                    CONF_REGISTER_PROFILE,
+                    default=current_data.get(CONF_REGISTER_PROFILE, DEFAULT_REGISTER_PROFILE),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[REGISTER_PROFILE_AUTO, *REGISTER_PROFILES.keys()],
+                        translation_key="register_profile",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_ADDON_MODULES,
                     default=current_data.get(CONF_ADDON_MODULES, []),
