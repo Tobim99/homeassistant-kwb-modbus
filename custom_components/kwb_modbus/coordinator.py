@@ -23,7 +23,6 @@ from .const import (
     DEFAULT_REGISTER_PROFILE,
     DEFAULT_SLAVE_ID,
     DOMAIN,
-    INDEXED_MODULES,
     MODBUS_HOLDING_REG_START,
     SENSOR_STATUS_OK,
 )
@@ -106,13 +105,14 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
     async def async_run_discovery(self) -> None:
         """Read status registers to determine which sensors are physically installed.
 
-        Indexed module sensors (BUF/HC/DHWC/etc.) are enabled only when the
-        corresponding status register returns SENSOR_STATUS_OK (2).
-        Non-indexed sensors are always enabled.
+        Value sensors with a paired status register (value_address + 1) are
+        enabled only when the status returns SENSOR_STATUS_OK (2). Value
+        sensors without a known status pair are enabled by default.
         Saves result to config entry data.
         """
         _LOGGER.info("Starting KWB sensor discovery")
         discovered: dict[str, bool] = {}
+        status_addresses = {r.address for r in self.get_all_registers() if r.is_status}
 
         if not self.client.connected:
             await self.client.connect()
@@ -124,17 +124,17 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
 
                 uid = f"kwb_{r.address}"
 
-                # Non-indexed sensors are always enabled
-                if (
-                    module_key not in INDEXED_MODULES
-                    or not r.index
-                    or r.address >= MODBUS_HOLDING_REG_START
-                ):
+                # Holding registers are always enabled.
+                if r.address >= MODBUS_HOLDING_REG_START:
                     discovered[uid] = True
                     continue
 
-                # Indexed sensors: check the status register (always address + 1)
                 status_address = r.address + 1
+                # No explicit status partner in the map -> keep enabled.
+                if status_address not in status_addresses:
+                    discovered[uid] = True
+                    continue
+
                 try:
                     result = await self.client.read_input_registers(
                         address=status_address,
@@ -144,7 +144,7 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
                     if result.isError():
                         _LOGGER.debug(
                             "Discovery: no response at %s for %s %s — disabling",
-                            status_address, r.index, r.name,
+                            status_address, r.index or "-", r.name,
                         )
                         discovered[uid] = False
                     else:
@@ -153,7 +153,7 @@ class KWBDataUpdateCoordinator(DataUpdateCoordinator[dict[int, Any]]):
                         discovered[uid] = is_ok
                         _LOGGER.debug(
                             "Discovery: %s %s → status=%s → enabled=%s",
-                            r.index, r.name, raw_status, is_ok,
+                            r.index or "-", r.name, raw_status, is_ok,
                         )
                 except ModbusException as err:
                     _LOGGER.warning("Discovery read error at %s: %s", status_address, err)
