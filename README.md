@@ -13,6 +13,7 @@ Custom integration to connect KWB heating systems via Modbus TCP in Home Assista
 - Custom instance names (for example `HC 1.1` -> `Living room`)
 - Expert mode for additional control selects that are disabled by default
 - `Re-run Sensor Discovery` button to trigger discovery again
+- Firmware profile auto-detection with manual override
 
 ## Supported Heating Devices
 
@@ -42,7 +43,7 @@ Custom integration to connect KWB heating systems via Modbus TCP in Home Assista
 
 ## Tested With
 
-- System/Firmware version: `22.4.0+`
+- System/Firmware versions: `22.4.0` and `25.4.1`
 - Legend: `✓` = tested, `X` = not tested
 
 ## Requirements
